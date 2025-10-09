@@ -5,8 +5,24 @@ import Image from "next/image";
 
 export default function ScannerForm() {
   const [target, setTarget] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const isValidInput =
+    /^(?:\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(target);
 
-  const isDisabled = target.trim() === "";
+  const startDisabled = !isValidInput || isScanning;
+  const stopDisabled = !isScanning;
+
+  const handleStart = () => {
+    setIsScanning(true);
+    console.log(`🚀 Escaneo iniciado para: ${target}`);
+    // Conectar backend con fetch()
+  };
+
+  const handleStop = () => {
+    setIsScanning(false);
+    console.log("🛑 Escaneo detenido");
+    // Cancelar la petición al backend
+  };
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-md w-[600px]">
@@ -26,7 +42,9 @@ export default function ScannerForm() {
         placeholder="Escribe el Dominio o IP"
         value={target}
         onChange={(e) => setTarget(e.target.value)}
-        className="border rounded-lg px-4 py-2 w-full mb-4 focus:outline-none focus:ring-2 focus:ring-[#003366]"
+        disabled={isScanning}
+        className={`border rounded-lg px-4 py-2 w-full mb-4 focus:outline-none focus:ring-2 focus:ring-[#003366] 
+          ${isScanning ? "bg-gray-100 cursor-not-allowed" : ""}`}
       />
 
       <div className="flex flex-row justify-center gap-4 mb-6">
@@ -36,6 +54,7 @@ export default function ScannerForm() {
             name="scanMode"
             value="quick"
             defaultChecked
+            disabled={isScanning}
             className="text-[#003366] focus:ring-[#003366] cursor-pointer"
           />
           <span className="text-gray-700 text-sm">Escaneo rápido</span>
@@ -46,6 +65,7 @@ export default function ScannerForm() {
             type="radio"
             name="scanMode"
             value="full"
+            disabled={isScanning}
             className="text-[#003366] focus:ring-[#003366] cursor-pointer"
           />
           <span className="text-gray-700 text-sm">Escaneo completo</span>
@@ -54,22 +74,23 @@ export default function ScannerForm() {
 
       <div className="flex justify-center gap-4">
         <button
-          disabled={isDisabled}
-          className={`px-6 py-2 rounded-lg transition-colors 
+          disabled={startDisabled}
+          onClick={handleStart}
+          className={`px-6 py-2 rounded-lg transition-colors font-semibold
             ${
-              isDisabled
+              startDisabled
                 ? "bg-[#7a94ad] text-white cursor-not-allowed"
                 : "bg-[#003366] text-white hover:bg-[#002850] cursor-pointer"
             }`}
         >
           INICIAR ESCANEO
         </button>
-
         <button
-          disabled={isDisabled}
-          className={`px-6 py-2 rounded-lg transition-colors 
+          disabled={stopDisabled}
+          onClick={handleStop}
+          className={`px-6 py-2 rounded-lg transition-colors font-semibold
             ${
-              isDisabled
+              stopDisabled
                 ? "bg-gray-400 text-white cursor-not-allowed"
                 : "bg-red-600 text-white hover:bg-red-700 cursor-pointer"
             }`}
@@ -77,6 +98,12 @@ export default function ScannerForm() {
           DETENER
         </button>
       </div>
+
+      {isScanning && (
+        <p className="text-center text-sm text-[#003366] mt-4 animate-pulse">
+          🔎 Escaneando {target}...
+        </p>
+      )}
     </div>
   );
 }
