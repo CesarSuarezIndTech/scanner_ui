@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 export default function ScannerForm() {
   const [target, setTarget] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [mode, setMode] = useState<"quick" | "full">("quick");
+  const [logs, setLogs] = useState<string>("");
+  const eventSrcRef = useRef<EventSource | null>(null);
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
   const isValidInput =
     /^(?:\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(target);
 
@@ -13,27 +17,69 @@ export default function ScannerForm() {
   const stopDisabled = !isScanning;
 
   const handleStart = () => {
+    if (!isValidInput || isScanning) return;
     setIsScanning(true);
-    console.log(`Escaneo iniciado para: ${target}`);
-    // Conectar backend con fetch()
+    setLogs("");
+
+    // Build SSE URL
+    const url = `/api/scan?target=${encodeURIComponent(target)}&mode=${mode}`;
+
+    const es = new EventSource(url);
+    eventSrcRef.current = es;
+
+    es.onmessage = (e) => {
+      setLogs((prev) => prev + (prev ? "\n" : "") + e.data);
+    };
+
+    es.addEventListener("stderr", (e) => {
+      const data = (e as MessageEvent).data;
+      setLogs((prev) => prev + (prev ? "\n" : "") + `[stderr] ${data}`);
+    });
+
+    es.onerror = () => {
+      // Auto-close on errors
+      es.close();
+      eventSrcRef.current = null;
+      setIsScanning(false);
+    };
   };
 
   const handleStop = () => {
-    setIsScanning(false);
-    console.log("Escaneo detenido");
     // Cancelar la petición al backend
+    try {
+      eventSrcRef.current?.close();
+    } catch {}
+    eventSrcRef.current = null;
+    setIsScanning(false);
   };
 
+  // Auto scroll logs
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        eventSrcRef.current?.close();
+      } catch {}
+      eventSrcRef.current = null;
+    };
+  }, []);
+
   return (
-    <div className="bg-white rounded-xl p-6 shadow-md w-[600px]">
+    <div className="bg-white rounded-xl p-6 w-[600px] flex flex-col">
       <Image
         src={"/images/ci2-logo.svg"}
         alt="Logo"
-        className="w-32 h-32 mx-auto mb-4"
+        className="w-25 h-25 mx-auto mb-4"
         width={80}
         height={80}
       />
-      <h2 className="text-2xl font-semibold text-[#003366] mb-4 text-center">
+      <h2 className="text-xl font-semibold text-[#003366] mb-4 text-center">
         Ingresa Dominio/IP
       </h2>
 
@@ -43,7 +89,7 @@ export default function ScannerForm() {
         value={target}
         onChange={(e) => setTarget(e.target.value)}
         disabled={isScanning}
-        className={`border rounded-lg px-4 py-2 w-full mb-4 focus:outline-none focus:ring-2 focus:ring-[#003366] 
+        className={`border border-[#003366] rounded-lg px-4 py-2 w-sm m-auto mb-4 focus:outline-none focus:ring-2 focus:ring-[#003366] text-black
           ${isScanning ? "bg-gray-100 cursor-not-allowed" : ""}`}
       />
 
@@ -53,7 +99,8 @@ export default function ScannerForm() {
             type="radio"
             name="scanMode"
             value="quick"
-            defaultChecked
+            checked={mode === "quick"}
+            onChange={() => setMode("quick")}
             disabled={isScanning}
             className="text-[#003366] focus:ring-[#003366] cursor-pointer"
           />
@@ -65,6 +112,8 @@ export default function ScannerForm() {
             type="radio"
             name="scanMode"
             value="full"
+            checked={mode === "full"}
+            onChange={() => setMode("full")}
             disabled={isScanning}
             className="text-[#003366] focus:ring-[#003366] cursor-pointer"
           />
@@ -99,11 +148,21 @@ export default function ScannerForm() {
         </button>
       </div>
 
-      {isScanning && (
-        <p className="text-center text-sm text-[#003366] mt-4 animate-pulse">
-          Escaneando {target}...
-        </p>
-      )}
+      <div className="mt-4 w-full">
+        {isScanning ? (
+          <p className="text-center text-sm text-[#003366] mb-2 animate-pulse">
+            Escaneando {target}...
+          </p>
+        ) : (
+          <p className="text-center text-sm text-gray-500 mb-2">Listo</p>
+        )}
+        <div
+          ref={logContainerRef}
+          className="border border-gray-300 rounded-md p-3 h-56 overflow-auto bg-gray-50 text-sm text-black whitespace-pre-wrap"
+        >
+          {logs || "Salida del escaneo aparecerá aquí..."}
+        </div>
+      </div>
     </div>
   );
 }
