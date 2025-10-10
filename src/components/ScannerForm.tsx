@@ -14,13 +14,13 @@ export default function ScannerForm() {
 
   const handleStart = () => {
     setIsScanning(true);
-    console.log(`🚀 Escaneo iniciado para: ${target}`);
+    console.log(`Escaneo iniciado para: ${target}`);
     // Conectar backend con fetch()
   };
 
   const handleStop = () => {
     setIsScanning(false);
-    console.log("🛑 Escaneo detenido");
+    console.log("Escaneo detenido");
     // Cancelar la petición al backend
   };
 
@@ -79,7 +79,7 @@ export default function ScannerForm() {
           className={`px-6 py-2 rounded-lg transition-colors font-semibold
             ${
               startDisabled
-                ? "bg-[#7a94ad] text-white cursor-not-allowed"
+                ? "bg-gray-400 text-white cursor-not-allowed"
                 : "bg-[#003366] text-white hover:bg-[#002850] cursor-pointer"
             }`}
         >
@@ -91,7 +91,7 @@ export default function ScannerForm() {
           className={`px-6 py-2 rounded-lg transition-colors font-semibold
             ${
               stopDisabled
-                ? "bg-gray-400 text-white cursor-not-allowed"
+                ? "bg-red-200 text-white cursor-not-allowed"
                 : "bg-red-600 text-white hover:bg-red-700 cursor-pointer"
             }`}
         >
@@ -101,7 +101,7 @@ export default function ScannerForm() {
 
       {isScanning && (
         <p className="text-center text-sm text-[#003366] mt-4 animate-pulse">
-          🔎 Escaneando {target}...
+          Escaneando {target}...
         </p>
       )}
     </div>
