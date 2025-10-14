@@ -1,0 +1,69 @@
+=============================================
+REPORTE DE RECONOCIMIENTO - google.com
+Fecha: 2025-10-14 15:41:16.124897
+=============================================
+
+===== WHOIS =====
+
+"whois" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+
+
+===== DNS LOOKUP =====
+
+Respuesta no autoritativa:
+
+Servidor:  UnKnown
+Address:  192.168.40.1
+
+google.com	internet address = 142.251.133.110
+google.com	AAAA IPv6 address = 2800:3f0:4005:419::200e
+google.com
+	primary name server = ns1.google.com
+	responsible mail addr = dns-admin.google.com
+	serial  = 819108987
+	refresh = 900 (15 mins)
+	retry   = 900 (15 mins)
+	expire  = 1800 (30 mins)
+	default TTL = 60 (1 min)
+google.com	nameserver = ns1.google.com
+google.com	nameserver = ns4.google.com
+google.com	nameserver = ns3.google.com
+google.com	nameserver = ns2.google.com
+
+
+===== NMAP =====
+
+[Sin resultados]
+
+
+===== NIKTO =====
+
+HTTP/1.1 301 Moved Permanently
+Location: http://www.google.com/
+Content-Type: text/html; charset=UTF-8
+Content-Security-Policy-Report-Only: object-src 'none';base-uri 'self';script-src 'nonce-syeooC9siHl_ZWHyZ5We4Q' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp
+Date: Tue, 14 Oct 2025 20:41:14 GMT
+Expires: Thu, 13 Nov 2025 20:41:14 GMT
+Cache-Control: public, max-age=2592000
+Server: gws
+Content-Length: 219
+X-XSS-Protection: 0
+X-Frame-Options: SAMEORIGIN
+
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=ISO-8859-1
+Content-Security-Policy-Report-Only: object-src 'none';base-uri 'self';script-src 'nonce-MVj6G0ATTMbszRJjqj8x_A' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp
+P3P: CP="This is not a P3P policy! See g.co/p3phelp for more info."
+Date: Tue, 14 Oct 2025 20:41:15 GMT
+Server: gws
+X-XSS-Protection: 0
+X-Frame-Options: SAMEORIGIN
+Transfer-Encoding: chunked
+Expires: Tue, 14 Oct 2025 20:41:15 GMT
+Cache-Control: private
+Set-Cookie: AEC=AaJma5v7Pu5KkLfXJ7AtptyNWGY25VhDSXR-_l1MzeZTlPVus373sZVYAw; expires=Sun, 12-Apr-2026 20:41:15 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax
+Set-Cookie: NID=525=mrK2TkIlMKHNq1oOPyBrYtrtpGhi1QcwWrKeCDEfR3zdmSFQZunVmBO_yZsTSOGnPgrSyTCIvXcBHZUxYqa9JqsIwTA9Zn2p2ewQiB60fF-vde0n2m3r5BM0E1EjNpeGtXUKiIA821VmUJJ0yMIoq1Kc6-o7fPtdzmxIRZEYzO0SeqtU9M4muJ-14pBJs--0OVXUli32p3NHJg; expires=Wed, 15-Apr-2026 20:41:15 GMT; path=/; domain=.google.com; HttpOnly
+
+
+

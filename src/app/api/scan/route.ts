@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!["quick", "full"].includes(mode)) return badRequest("'mode' inválido");
 
   // Resolve python command and script path from env or defaults
-  const pythonCmd = process.env.PYTHON_CMD || "python3"; // can be venv python
+  const pythonCmd = process.env.PYTHON_CMD || (process.platform === "win32" ? "python" : "python3");
   const configuredScript = process.env.PY_SCRIPT || `${process.cwd()}/scripts/scanScript/recon_gui_v20.py`;
   const scriptPath = path.isAbsolute(configuredScript)
     ? configuredScript
@@ -55,7 +55,11 @@ export async function GET(req: NextRequest) {
       try {
         child = spawn(command, args, {
           cwd: scriptCwd,
-          env: process.env,
+          env: { 
+            ...process.env, 
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1"
+          },
           stdio: ["ignore", "pipe", "pipe"],
         });
 
@@ -65,7 +69,17 @@ export async function GET(req: NextRequest) {
 
         child.stdout?.on("data", (chunk: Buffer) => {
           if (closed) return;
-          controller.enqueue(encoder.encode(sseFormat(chunk.toString())));
+          const output = chunk.toString();
+          
+          // Check for progress patterns like "Avance: 25%"
+          const progressMatch = output.match(/Avance:\s*(\d+)%/);
+          if (progressMatch) {
+            const percentage = parseInt(progressMatch[1], 10);
+            controller.enqueue(encoder.encode(sseFormat(percentage.toString(), "progress")));
+          }
+          
+          // Send regular output as well
+          controller.enqueue(encoder.encode(sseFormat(output)));
         });
 
         child.stderr?.on("data", (chunk: Buffer) => {

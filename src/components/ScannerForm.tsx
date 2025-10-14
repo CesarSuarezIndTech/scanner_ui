@@ -3,24 +3,56 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import Image from "next/image";
+import { Clock3 } from "lucide-react";
 
 export default function ScannerForm() {
   const [target, setTarget] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [mode, setMode] = useState<"quick" | "full">("quick");
   const [logs, setLogs] = useState<string>("");
+  const [progress, setProgress] = useState<number>(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
   const eventSrcRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isValidInput =
     /^(?:\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(target);
 
   const startDisabled = !isValidInput || isScanning;
   const stopDisabled = !isScanning;
 
+  // Helper functions for time formatting and estimation
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  const estimateRemainingTime = (): number => {
+    if (progress <= 0 || !startTime) return 0;
+    const elapsedMs = Date.now() - startTime;
+    const progressRate = progress / elapsedMs; // progress per ms
+    const remainingProgress = 100 - progress;
+    const estimatedRemainingMs = remainingProgress / progressRate;
+    return Math.floor(estimatedRemainingMs / 1000);
+  };
+
   const handleStart = () => {
     if (!isValidInput || isScanning) return;
     setIsScanning(true);
     setLogs("");
+    setProgress(0);
+    setStartTime(Date.now());
+    setElapsedTime(0);
+
+    // Start timer for elapsed time
+    timerRef.current = setInterval(() => {
+      if (startTime) {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }
+    }, 1000);
 
     // Build SSE URL
     const url = `/api/scan?target=${encodeURIComponent(target)}&mode=${mode}`;
@@ -37,11 +69,33 @@ export default function ScannerForm() {
       setLogs((prev: string) => prev + (prev ? "\n" : "") + `[stderr] ${data}`);
     });
 
+    es.addEventListener("progress", (e) => {
+      const progressValue = parseInt((e as MessageEvent).data, 10);
+      if (!isNaN(progressValue)) {
+        setProgress(progressValue);
+      }
+    });
+
+    es.addEventListener("done", () => {
+      // Scan completed
+      es.close();
+      eventSrcRef.current = null;
+      setIsScanning(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    });
+
     es.onerror = () => {
       // Auto-close on errors
       es.close();
       eventSrcRef.current = null;
       setIsScanning(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   };
 
@@ -52,6 +106,11 @@ export default function ScannerForm() {
     } catch {}
     eventSrcRef.current = null;
     setIsScanning(false);
+    setProgress(0);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   };
 
   // Auto scroll logs
@@ -68,6 +127,10 @@ export default function ScannerForm() {
         eventSrcRef.current?.close();
       } catch {}
       eventSrcRef.current = null;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, []);
 
@@ -149,17 +212,23 @@ export default function ScannerForm() {
         </button>
       </div>
 
-      <div className="mt-4 px-4 flex flex-col border-2 border-[#003366] text-black" >
-        {isScanning ? (
-          <p className="text-start text-sm text-[#003366] mb-2 animate-pulse">
-            Escaneando
-          </p>
-        ) : (
-          <p className="text-start text-sm text-gray-500">Listo</p>
-        )}
+      <div className="mt-10 px-6 py-4 flex flex-col rounded-[16px] [box-shadow:0px_0px_16px_0px_rgba(0,51,102,0.25)] text-black" >
+        <div className="flex justify-between">
+          <p className="text-start text-sm text-[#DF0D1B] font-semibold">{`${progress}% Completado`}</p>
+          <div className="flex items-center text-xs text-[#8E9398] gap-0.5">
+            <Clock3 size={10}/>
+            <p>{formatTime(elapsedTime)} {progress > 0 && progress < 100 ? `/ ~${formatTime(estimateRemainingTime())}` : ""}</p>
+          </div>
+        </div>
+        <div className="w-full mt-2 mb-4 bg-gray-200 rounded-full h-2.5">
+          <div
+            className="bg-[#DF0C1B] h-2.5 rounded-full transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
         <div
           ref={logContainerRef}
-          className="border border-gray-300 rounded-md m-4 h-56 overflow-auto bg-black text-sm text-white whitespace-pre-wrap"
+          className="border border-gray-300 rounded-md h-56 overflow-auto bg-black text-sm text-white whitespace-pre-wrap"
         >
           {logs || "Salida del escaneo aparecerá aquí..."}
         </div>
