@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { Clock3 } from "lucide-react";
+import { Modal } from "./Modal";
+import { useModal } from "@/hooks/useModal";
 
 export default function ScannerForm() {
+  const { isOpen, handleShow, handleClose} = useModal()
   const [target, setTarget] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [mode, setMode] = useState<"quick" | "full">("quick");
@@ -21,23 +24,6 @@ export default function ScannerForm() {
 
   const startDisabled = !isValidInput || isScanning;
   const stopDisabled = !isScanning;
-
-  // Helper functions for time formatting and estimation
-  const formatTime = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
-  };
-
-  const estimateRemainingTime = (): number => {
-    if (progress <= 0 || !startTime) return 0;
-    const elapsedMs = Date.now() - startTime;
-    const progressRate = progress / elapsedMs; // progress per ms
-    const remainingProgress = 100 - progress;
-    const estimatedRemainingMs = remainingProgress / progressRate;
-    return Math.floor(estimatedRemainingMs / 1000);
-  };
 
   const handleStart = () => {
     if (!isValidInput || isScanning) return;
@@ -81,6 +67,7 @@ export default function ScannerForm() {
       es.close();
       eventSrcRef.current = null;
       setIsScanning(false);
+      handleShow()
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -217,7 +204,7 @@ export default function ScannerForm() {
           <p className="text-start text-sm text-[#DF0D1B] font-semibold">{`${progress}% Completado`}</p>
           <div className="flex items-center text-xs text-[#8E9398] gap-0.5">
             <Clock3 size={10}/>
-            <p>{formatTime(elapsedTime)} {progress > 0 && progress < 100 ? `/ ~${formatTime(estimateRemainingTime())}` : ""}</p>
+            <p>{`${Math.floor(elapsedTime / 60)} minutos`}</p>
           </div>
         </div>
         <div className="w-full mt-2 mb-4 bg-gray-200 rounded-full h-2.5">
@@ -233,6 +220,7 @@ export default function ScannerForm() {
           {logs || "Salida del escaneo aparecerá aquí..."}
         </div>
       </div>
+        <Modal isOpen={isOpen} handleClose={handleClose}/>
     </div>
   );
 }
