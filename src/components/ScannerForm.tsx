@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import Image from "next/image";
 
 export default function ScannerForm() {
@@ -28,12 +29,12 @@ export default function ScannerForm() {
     eventSrcRef.current = es;
 
     es.onmessage = (e) => {
-      setLogs((prev) => prev + (prev ? "\n" : "") + e.data);
+      setLogs((prev: string) => prev + (prev ? "\n" : "") + e.data);
     };
 
     es.addEventListener("stderr", (e) => {
       const data = (e as MessageEvent).data;
-      setLogs((prev) => prev + (prev ? "\n" : "") + `[stderr] ${data}`);
+      setLogs((prev: string) => prev + (prev ? "\n" : "") + `[stderr] ${data}`);
     });
 
     es.onerror = () => {
@@ -87,7 +88,7 @@ export default function ScannerForm() {
         type="text"
         placeholder="Escribe el Dominio o IP"
         value={target}
-        onChange={(e) => setTarget(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setTarget(e.target.value)}
         disabled={isScanning}
         className={`border border-[#003366] rounded-lg px-4 py-2 w-sm m-auto mb-4 focus:outline-none focus:ring-2 focus:ring-[#003366] text-black
           ${isScanning ? "bg-gray-100 cursor-not-allowed" : ""}`}
@@ -114,7 +115,7 @@ export default function ScannerForm() {
             value="full"
             checked={mode === "full"}
             onChange={() => setMode("full")}
-            disabled={isScanning}
+            disabled={true} // Full scan disabled for now
             className="text-[#003366] focus:ring-[#003366] cursor-pointer"
           />
           <span className="text-gray-700 text-sm">Escaneo completo</span>
@@ -148,17 +149,17 @@ export default function ScannerForm() {
         </button>
       </div>
 
-      <div className="mt-4 w-full">
+      <div className="mt-4 px-4 flex flex-col border-2 border-[#003366] text-black" >
         {isScanning ? (
-          <p className="text-center text-sm text-[#003366] mb-2 animate-pulse">
-            Escaneando {target}...
+          <p className="text-start text-sm text-[#003366] mb-2 animate-pulse">
+            Escaneando
           </p>
         ) : (
-          <p className="text-center text-sm text-gray-500 mb-2">Listo</p>
+          <p className="text-start text-sm text-gray-500">Listo</p>
         )}
         <div
           ref={logContainerRef}
-          className="border border-gray-300 rounded-md p-3 h-56 overflow-auto bg-gray-50 text-sm text-black whitespace-pre-wrap"
+          className="border border-gray-300 rounded-md m-4 h-56 overflow-auto bg-black text-sm text-white whitespace-pre-wrap"
         >
           {logs || "Salida del escaneo aparecerá aquí..."}
         </div>

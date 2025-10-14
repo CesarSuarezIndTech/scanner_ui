@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
+import path from "node:path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,8 +31,18 @@ export async function GET(req: NextRequest) {
   if (!["quick", "full"].includes(mode)) return badRequest("'mode' inválido");
 
   // Resolve python command and script path from env or defaults
-  const pythonCmd = process.env.PYTHON_CMD || "python3"; // typical on Ubuntu
-  const scriptPath = process.env.PY_SCRIPT || `${process.cwd()}/scripts/scan.py`;
+  const pythonCmd = process.env.PYTHON_CMD || "python3"; // can be venv python
+  const configuredScript = process.env.PY_SCRIPT || `${process.cwd()}/scripts/scanScript/recon_gui_v20.py`;
+  const scriptPath = path.isAbsolute(configuredScript)
+    ? configuredScript
+    : path.join(process.cwd(), configuredScript);
+  const scriptCwd = path.dirname(scriptPath);
+
+  // Choose how to spawn depending on extension
+  const isShellScript = scriptPath.endsWith(".sh");
+  const command = isShellScript ? "bash" : pythonCmd;
+  const baseArgs = isShellScript ? [scriptPath] : ["-u", scriptPath];
+  const args = [...baseArgs, target, mode];
 
   let child: ReturnType<typeof spawn> | null = null;
   let closed = false;
@@ -42,14 +53,14 @@ export async function GET(req: NextRequest) {
     start(controller) {
       // Start process
       try {
-        child = spawn(pythonCmd, [scriptPath, target, mode], {
-          cwd: process.cwd(),
+        child = spawn(command, args, {
+          cwd: scriptCwd,
           env: process.env,
           stdio: ["ignore", "pipe", "pipe"],
         });
 
         controller.enqueue(
-          encoder.encode(sseFormat(`Ejecutando: ${pythonCmd} ${scriptPath} ${target} ${mode}`))
+          encoder.encode(sseFormat(`Ejecutando: ${command} ${args.join(" ")}`))
         );
 
         child.stdout?.on("data", (chunk: Buffer) => {
@@ -77,7 +88,7 @@ export async function GET(req: NextRequest) {
           const msg = signal
             ? `Proceso terminado por señal: ${signal}`
             : `Proceso finalizado con código: ${code}`;
-          controller.enqueue(encoder.encode(sseFormat(msg)));
+          controller.enqueue(encoder.encode(sseFormat(msg, "done")));
           closed = true;
           controller.close();
         });
