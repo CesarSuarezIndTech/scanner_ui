@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { Clock3 } from "lucide-react";
+import { AnsiUp } from "ansi_up";
 import { Modal } from "./Modal";
 import { useModal } from "@/hooks/useModal";
 
@@ -15,7 +16,7 @@ export default function ScannerForm() {
   const [isScanning, setIsScanning] = useState(false);
   const [mode, setMode] = useState<"quick" | "full">("quick");
   const [modalType, setModalType] = useState<"error" | "success">("error");
-  const [logs, setLogs] = useState<string>("");
+  const [logsHtml, setLogsHtml] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
@@ -23,6 +24,7 @@ export default function ScannerForm() {
   
   const eventSrcRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const ansiRef = useRef<AnsiUp | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isValidInput =
     /^(?:\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(target);
@@ -36,9 +38,9 @@ export default function ScannerForm() {
     // Pequeño delay para activar la animación
     setTimeout(() => setShowScan(true), 50);
     setIsScanning(true);
-    setLogs("");
+  setLogsHtml("");
     setProgress(0);
-  setReportFileName("");
+    setReportFileName("");
     setStartTime(Date.now());
     setElapsedTime(0);
 
@@ -55,13 +57,23 @@ export default function ScannerForm() {
     const es = new EventSource(url);
     eventSrcRef.current = es;
 
+    // Inicializar ansi_up una sola vez
+    if (!ansiRef.current) {
+      ansiRef.current = new AnsiUp();
+    }
+
     es.onmessage = (e) => {
-      setLogs((prev: string) => prev + (prev ? "\n" : "") + e.data);
+      const msg = typeof e.data === "string" ? e.data : String(e.data);
+      const html = ansiRef.current!.ansi_to_html(msg);
+      setLogsHtml((prev) => (prev ? prev + "\n" : "") + html);
     };
 
     es.addEventListener("stderr", (e) => {
-      const data = (e as MessageEvent).data;
-      setLogs((prev: string) => prev + (prev ? "\n" : "") + `[stderr] ${data}`);
+      const data = (e as MessageEvent).data as string;
+      // Pintar stderr en rojo usando códigos ANSI para que ansi_up lo convierta
+      const colored = `\u001b[31m[stderr]\u001b[0m ${data}`;
+      const html = ansiRef.current!.ansi_to_html(colored);
+      setLogsHtml((prev) => (prev ? prev + "\n" : "") + html);
     });
 
     es.addEventListener("progress", (e) => {
@@ -131,7 +143,7 @@ export default function ScannerForm() {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
-  }, [logs]);
+  }, [logsHtml]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -277,9 +289,12 @@ export default function ScannerForm() {
           </div>
           <div
             ref={logContainerRef}
-            className="border border-gray-300 rounded-md h-56 overflow-auto bg-black text-sm text-white whitespace-pre-wrap"
+            className="border border-gray-300 rounded-md h-56 overflow-auto bg-black text-[13px] text-white font-mono"
           >
-            {logs || "Salida del escaneo aparecerá aquí..."}
+            <pre
+              className="whitespace-pre-wrap break-words leading-tight m-0 p-2"
+              dangerouslySetInnerHTML={{ __html: logsHtml || "Salida del escaneo aparecerá aquí..." }}
+            />
           </div>
         </div>
       }
