@@ -10,12 +10,17 @@ import { useModal } from "@/hooks/useModal";
 export default function ScannerForm() {
   const { isOpen, handleShow, handleClose} = useModal()
   const [target, setTarget] = useState("");
+  const [openScan, setOpenScan] = useState<boolean>(false);
+  const [showScan, setShowScan] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState(false);
   const [mode, setMode] = useState<"quick" | "full">("quick");
+  const [modalType, setModalType] = useState<"error" | "success">("error");
   const [logs, setLogs] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [reportFileName, setReportFileName] = useState<string>("");
+  
   const eventSrcRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -27,9 +32,13 @@ export default function ScannerForm() {
 
   const handleStart = () => {
     if (!isValidInput || isScanning) return;
+    setOpenScan(true);
+    // Pequeño delay para activar la animación
+    setTimeout(() => setShowScan(true), 50);
     setIsScanning(true);
     setLogs("");
     setProgress(0);
+  setReportFileName("");
     setStartTime(Date.now());
     setElapsedTime(0);
 
@@ -62,12 +71,20 @@ export default function ScannerForm() {
       }
     });
 
+    // Recibir el nombre del archivo generado y preparar la descarga
+    es.addEventListener("filename", (e) => {
+      const filename = (e as MessageEvent).data as string;
+      console.log(filename);
+      
+      if (filename) setReportFileName(filename);
+    });
+
     es.addEventListener("done", () => {
       // Scan completed
       es.close();
       eventSrcRef.current = null;
       setIsScanning(false);
-      handleShow()
+      handleOpenModal('success')
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -86,7 +103,7 @@ export default function ScannerForm() {
     };
   };
 
-  const handleStop = () => {
+  const handleStop = () => {    
     // Cancelar la petición al backend
     try {
       eventSrcRef.current?.close();
@@ -96,9 +113,18 @@ export default function ScannerForm() {
     setProgress(0);
     if (timerRef.current) {
       clearInterval(timerRef.current);
+      handleClose()
       timerRef.current = null;
     }
+    // Animar salida
+    setShowScan(false);
+    setTimeout(() => setOpenScan(false), 300);
   };
+
+  const handleOpenModal = (type : 'success' | 'error') => {
+    setModalType(type);
+    handleShow()
+  }
 
   // Auto scroll logs
   useEffect(() => {
@@ -121,8 +147,34 @@ export default function ScannerForm() {
     };
   }, []);
 
+  // Descargar automáticamente el reporte cuando llega el nombre del archivo
+  useEffect(() => {
+    const download = async (name: string) => {
+      try {
+        const res = await fetch(`/api/download?filename=${encodeURIComponent(name)}`);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (e) {
+        // Silenciar errores de descarga para no interrumpir el flujo
+        console.error("No se pudo descargar el reporte:", e);
+      }
+    };
+
+    if (reportFileName) {
+      download(reportFileName);
+    }
+  }, [reportFileName]);
+
   return (
-    <div className="bg-white rounded-xl p-6 w-[600px] flex flex-col">
+    <div className="bg-white rounded-xl w-[600px] flex flex-col">
       <Image
         src={"/images/ci2-logo.svg"}
         alt="Logo"
@@ -176,7 +228,7 @@ export default function ScannerForm() {
         <button
           disabled={startDisabled}
           onClick={handleStart}
-          className={`px-6 py-2 rounded-lg transition-colors font-semibold
+          className={`px-3 py-3 rounded-lg transition-colors w-[11vw] text-sm font-semibold
             ${
               startDisabled
                 ? "bg-gray-400 text-white cursor-not-allowed"
@@ -187,8 +239,8 @@ export default function ScannerForm() {
         </button>
         <button
           disabled={stopDisabled}
-          onClick={handleStop}
-          className={`px-6 py-2 rounded-lg transition-colors font-semibold
+          onClick={() => handleOpenModal('error')}
+          className={`px-6 py-2 rounded-lg transition-colors w-[11vw] text-sm font-semibold
             ${
               stopDisabled
                 ? "bg-red-200 text-white cursor-not-allowed"
@@ -198,29 +250,45 @@ export default function ScannerForm() {
           DETENER
         </button>
       </div>
-
-      <div className="mt-10 px-6 py-4 flex flex-col rounded-[16px] [box-shadow:0px_0px_16px_0px_rgba(0,51,102,0.25)] text-black" >
-        <div className="flex justify-between">
-          <p className="text-start text-sm text-[#DF0D1B] font-semibold">{`${progress}% Completado`}</p>
-          <div className="flex items-center text-xs text-[#8E9398] gap-0.5">
-            <Clock3 size={10}/>
-            <p>{`${Math.floor(elapsedTime / 60)} minutos`}</p>
+      {openScan &&
+        <div 
+          className={`mt-10 px-6 py-4 flex flex-col rounded-[16px] [box-shadow:0px_0px_16px_0px_rgba(0,51,102,0.25)] text-black transform transition-all duration-500 ease-out ${
+            showScan 
+              ? 'opacity-100 translate-y-0 scale-100' 
+              : 'opacity-0 translate-y-8 scale-100'
+          }`}
+          style={{
+            transform: showScan ? 'translateY(0) scale(1)' : 'translateY(32px) scale(0.95)',
+            opacity: showScan ? 1 : 0,
+          }}
+        >
+          <div className="flex justify-between">
+            <p className="text-start text-sm text-[#DF0D1B] font-semibold">{`${progress}% Completado`}</p>
+            <div className="flex items-center text-xs text-[#8E9398] gap-0.5">
+              <Clock3 size={10}/>
+              <p>{`${Math.floor(elapsedTime / 60)} minutos`}</p>
+            </div>
+          </div>
+          <div className="w-full mt-2 mb-4 bg-gray-200 rounded-full h-2.5">
+            <div
+              className="bg-[#DF0C1B] h-2.5 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <div
+            ref={logContainerRef}
+            className="border border-gray-300 rounded-md h-56 overflow-auto bg-black text-sm text-white whitespace-pre-wrap"
+          >
+            {logs || "Salida del escaneo aparecerá aquí..."}
           </div>
         </div>
-        <div className="w-full mt-2 mb-4 bg-gray-200 rounded-full h-2.5">
-          <div
-            className="bg-[#DF0C1B] h-2.5 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
-        <div
-          ref={logContainerRef}
-          className="border border-gray-300 rounded-md h-56 overflow-auto bg-black text-sm text-white whitespace-pre-wrap"
-        >
-          {logs || "Salida del escaneo aparecerá aquí..."}
-        </div>
-      </div>
-        <Modal isOpen={isOpen} handleClose={handleClose}/>
+      }
+        <Modal 
+          isOpen={isOpen} 
+          handleClose={handleClose}
+          handleStop={handleStop} 
+          modalType={modalType}
+        />
     </div>
   );
 }

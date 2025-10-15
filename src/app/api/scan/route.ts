@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { spawn } from "child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 export const runtime = "nodejs";
@@ -38,6 +39,10 @@ export async function GET(req: NextRequest) {
     : path.join(process.cwd(), configuredScript);
   const scriptCwd = path.dirname(scriptPath);
 
+  // Report directories (primary = where script writes; fallback = project root reports)
+  const reportsPrimaryDir = path.join(process.cwd(), "scripts", "scanScript", "recon_reports");
+  const reportsFallbackDir = path.join(process.cwd(), "recon_reports");
+
   // Choose how to spawn depending on extension
   const isShellScript = scriptPath.endsWith(".sh");
   const command = isShellScript ? "bash" : pythonCmd;
@@ -46,6 +51,18 @@ export async function GET(req: NextRequest) {
 
   let child: ReturnType<typeof spawn> | null = null;
   let closed = false;
+  let filenameEmitted: string | null = null;
+
+  // Snapshot existing files before starting to later detect new ones
+  const safeListDir = (dir: string) => {
+    try {
+      return fs.readdirSync(dir).filter((f) => f.endsWith(".txt"));
+    } catch {
+      return [] as string[];
+    }
+  };
+  const beforePrimary = new Set(safeListDir(reportsPrimaryDir));
+  const beforeFallback = new Set(safeListDir(reportsFallbackDir));
 
   const encoder = new TextEncoder();
 
@@ -78,6 +95,14 @@ export async function GET(req: NextRequest) {
             controller.enqueue(encoder.encode(sseFormat(percentage.toString(), "progress")));
           }
           
+          // Detectar el archivo generado
+          const filenameMatch = output.match(/reporte_[^\.\s]+_\d{8}_\d{6}\.txt/);
+          if (filenameMatch) {
+            const filename = filenameMatch[0];
+            filenameEmitted = filename;
+            controller.enqueue(encoder.encode(sseFormat(filename, "filename")));
+          }
+          
           // Send regular output as well
           controller.enqueue(encoder.encode(sseFormat(output)));
         });
@@ -99,9 +124,33 @@ export async function GET(req: NextRequest) {
 
         child.on("close", (code, signal) => {
           if (closed) return;
+          // If no filename was emitted by stdout, try to detect the newest report file
+          if (!filenameEmitted) {
+            const collectNewFiles = (dir: string, before: Set<string>) => {
+              try {
+                const list = fs.readdirSync(dir).filter((f) => f.endsWith(".txt"));
+                const news = list.filter((f) => !before.has(f));
+                // sort by mtime desc
+                const sorted = news
+                  .map((f) => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }))
+                  .sort((a, b) => b.t - a.t)
+                  .map((x) => x.f);
+                return sorted;
+              } catch {
+                return [] as string[];
+              }
+            };
+            const primaryNew = collectNewFiles(reportsPrimaryDir, beforePrimary);
+            const fallbackNew = collectNewFiles(reportsFallbackDir, beforeFallback);
+            const candidate = (primaryNew[0] || fallbackNew[0]) || null;
+            if (candidate) {
+              filenameEmitted = candidate;
+              controller.enqueue(encoder.encode(sseFormat(candidate, "filename")));
+            }
+          }
           const msg = signal
             ? `Proceso terminado por señal: ${signal}`
-            : `Proceso finalizado con código: ${code}`;
+            : `Proceso finalizado with código: ${code}`;
           controller.enqueue(encoder.encode(sseFormat(msg, "done")));
           closed = true;
           controller.close();
