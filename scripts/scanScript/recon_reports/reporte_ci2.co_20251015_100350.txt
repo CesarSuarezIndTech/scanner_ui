@@ -1,0 +1,29 @@
+=============================================
+REPORTE DE RECONOCIMIENTO - ci2.co
+Fecha: 2025-10-15 10:03:50.288720
+=============================================
+
+===== WHOIS =====
+
+"whois" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+
+
+===== DNS LOOKUP =====
+
+"dig" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+
+
+===== NMAP =====
+
+"nmap" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+
+
+===== NIKTO =====
+
+"nikto" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+
+
